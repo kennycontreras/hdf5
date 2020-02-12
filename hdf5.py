@@ -39,8 +39,8 @@ def process_groups(group, timestamp):
         timestamp_arr.append(timestamp + sup_offset)
 
         for i in range(len(data[0])-1):
-            timestamp_arr.append(timestamp + sup_offset + (
-                                    frequency))
+            timestamp = timestamp + sup_offset + frequency
+            timestamp_arr.append(timestamp)
 
         material = np.empty(len(data[0]), dtype="S256")
         material.fill((dataframe.name).split("/")[2])
@@ -79,12 +79,21 @@ def main():
 
     print("ProcessPoolExecutor Step")
 
+    HDF_LOCK = threading.Lock()
+    HDF_PATH = 'files/input_hdf5/FCB_1_5B-DCV_20180827062547_42_TDQAR___media__root__DCVDMU1__EOFLOCATQAR.dat-QAR.DAT.001-START_AND_STOP.hdf5'
+
+    @contextmanager
+    def locked_file():
+        with HDF_LOCK:
+            with h5py.File(HDF_PATH, 'r') as file:
+                yield file
+
     def process_files():
         with locked_file() as file:
             timestamp = file.attrs.get('start_timestamp', 0)
             dataset = file.get('series')
 
-            with concurrent.futures.ProcessPoolExecutor(10) as executor:
+            with concurrent.futures.ProcessPoolExecutor() as executor:
                 for group, res in ((group, executor.submit(process_groups, group,
                      timestamp)) for group in dataset):
                     print(res.result())
