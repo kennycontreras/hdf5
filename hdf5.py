@@ -8,19 +8,19 @@ from google.oauth2 import service_account
 from google.cloud import storage
 
 HDF_LOCK = threading.Lock()
-HDF_PATH = 'files/input_hdf5/FCB_1_5B-DCV_20180827062547_42_TDQAR___media__root__DCVDMU1__EOFLOCATQAR.dat-QAR.DAT.001-START_AND_STOP.hdf5'
 
 
 @contextmanager
-def locked_file():
+def locked_file(HDF_PATH):
     with HDF_LOCK:
         with h5py.File(HDF_PATH, 'r') as file:
             yield file
 
 
-def process_groups(group, timestamp):
-    with locked_file() as file:
+def process_groups(group, path):
+    with locked_file(path) as file:
         dataset = file.get('series')
+        timestamp = file.attrs.get('start_timestamp', 0)
         dataframe = dataset.get(group)
         attrs = dataframe.attrs
         members = list(dataframe.keys())
@@ -79,29 +79,17 @@ def main():
 
     print("ProcessPoolExecutor Step")
 
-    HDF_LOCK = threading.Lock()
     HDF_PATH = 'files/input_hdf5/FCB_1_5B-DCV_20180827062547_42_TDQAR___media__root__DCVDMU1__EOFLOCATQAR.dat-QAR.DAT.001-START_AND_STOP.hdf5'
 
-    @contextmanager
-    def locked_file():
-        with HDF_LOCK:
-            with h5py.File(HDF_PATH, 'r') as file:
-                yield file
-
-    def process_files():
-        with locked_file() as file:
-            timestamp = file.attrs.get('start_timestamp', 0)
-            dataset = file.get('series')
-
-            with concurrent.futures.ProcessPoolExecutor() as executor:
-                for group, res in ((group, executor.submit(process_groups, group,
-                     timestamp)) for group in dataset):
-                    print(res.result())
-
-    process_files()
+    groups = None
+    with h5py.File(HDF_PATH, 'r') as hdf5_file:
+        groups = list(hdf5_file.get('series').keys())
+        print(f"Groups: {groups}")
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        for group, res in ((group, executor.submit(process_groups, group,
+                HDF_PATH)) for group in groups):
+            print(res.result())
 
 
 if __name__ == "__main__":
     main()
-
-
