@@ -59,11 +59,11 @@ def process_groups(group, path, timestamp):
 def main():
     print("Iniciando proceso de HDF5")
     credentials = service_account.Credentials.from_service_account_file(
-            f"{os.getcwd()}/bc-te-dlake-dev-s7b3-451c22a74cc1.json")
+            f"{os.getcwd()}/credentials.json")
 
     client = storage.Client(credentials=credentials)
-    bucket = client.get_bucket('us-east-1-dataflow-econtreras')
-    blob = bucket.blob('input_hdf5/FCB_1_5B-DCV_20180827062547_42_TDQAR___media__root__DCVDMU1__EOFLOCATQAR.dat-QAR.DAT.001-START_AND_STOP.hdf5')
+    bucket = client.get_bucket('')
+    blob = bucket.blob('')
 
     path = "files"
     if not os.path.exists(path):
@@ -75,7 +75,7 @@ def main():
 
     print("ProcessPoolExecutor Step")
 
-    HDF_PATH = destination_uri#'files/input_hdf5/FCB_1_5B-DCV_20180827062547_42_TDQAR___media__root__DCVDMU1__EOFLOCATQAR.dat-QAR.DAT.001-START_AND_STOP.hdf5'
+    HDF_PATH = destination_uri
 
     groups = None
     timestamp = None
