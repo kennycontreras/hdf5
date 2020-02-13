@@ -2,25 +2,21 @@ import os
 import h5py
 import numpy as np
 import concurrent.futures
-import threading
 from contextlib import contextmanager
 from google.oauth2 import service_account
 from google.cloud import storage
 
-HDF_LOCK = threading.Lock()
-
 
 @contextmanager
-def locked_file(HDF_PATH):
-    with HDF_LOCK:
-        with h5py.File(HDF_PATH, 'r') as file:
-            yield file
+def yield_file(HDF_PATH):
+    with h5py.File(HDF_PATH, 'r') as file:
+        yield file
 
 
-def process_groups(group, path):
-    with locked_file(path) as file:
+def process_groups(group, path, timestamp):
+    with yield_file(path) as file:
         dataset = file.get('series')
-        timestamp = file.attrs.get('start_timestamp', 0)
+        #timestamp = file.attrs.get('start_timestamp', 0)
         dataframe = dataset.get(group)
         attrs = dataframe.attrs
         members = list(dataframe.keys())
@@ -79,15 +75,17 @@ def main():
 
     print("ProcessPoolExecutor Step")
 
-    HDF_PATH = 'files/input_hdf5/FCB_1_5B-DCV_20180827062547_42_TDQAR___media__root__DCVDMU1__EOFLOCATQAR.dat-QAR.DAT.001-START_AND_STOP.hdf5'
+    HDF_PATH = destination_uri#'files/input_hdf5/FCB_1_5B-DCV_20180827062547_42_TDQAR___media__root__DCVDMU1__EOFLOCATQAR.dat-QAR.DAT.001-START_AND_STOP.hdf5'
 
     groups = None
+    timestamp = None
     with h5py.File(HDF_PATH, 'r') as hdf5_file:
         groups = list(hdf5_file.get('series').keys())
-        print(f"Groups: {groups}")
-    with concurrent.futures.ProcessPoolExecutor() as executor:
+        timestamp = hdf5_file.attrs.get('start_timestamp', 0)
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
         for group, res in ((group, executor.submit(process_groups, group,
-                HDF_PATH)) for group in groups):
+                HDF_PATH, timestamp)) for group in groups):
             print(res.result())
 
 
