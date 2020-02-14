@@ -84,9 +84,10 @@ def main():
         timestamp = hdf5_file.attrs.get('start_timestamp', 0)
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
-        for group, res in ((group, executor.submit(process_groups, group,
-                HDF_PATH, timestamp)) for group in groups):
-            print(res.result())
+        futures = {executor.submit(process_groups, group, HDF_PATH, timestamp):
+                group for group in groups}
+        for future in concurrent.futures.as_completed(futures):
+            print(f'Result: {future.result()}')
 
 
 if __name__ == "__main__":
