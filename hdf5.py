@@ -14,6 +14,12 @@ def yield_file(HDF_PATH):
 
 
 def process_groups(group, path, timestamp):
+    """
+    Args:
+        group (List) = List of groups for every HDF5 file
+        path (String) = Path to open a file
+        timestamp (Float) = Timestamp value for every HDF5 file
+    """
     with yield_file(path) as file:
         dataset = file.get('series')
         dataframe = dataset.get(group)
@@ -53,6 +59,7 @@ def process_groups(group, path, timestamp):
         data_np = np.column_stack(data_np)
 
         name_file = f"{((dataframe.name).split('/')[2]).replace(' ', '_')}_{timestamp}.csv"
+
         print(f"Procesando archivo: {name_file}")
         np.savetxt(f"{os.getcwd()}/files/{name_file}", data_np, delimiter=";", fmt="%s",
                     header=";".join([member for member in members]))
