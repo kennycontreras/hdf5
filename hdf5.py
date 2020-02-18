@@ -16,7 +16,6 @@ def yield_file(HDF_PATH):
 def process_groups(group, path, timestamp):
     with yield_file(path) as file:
         dataset = file.get('series')
-        #timestamp = file.attrs.get('start_timestamp', 0)
         dataframe = dataset.get(group)
         attrs = dataframe.attrs
         members = list(dataframe.keys())
@@ -24,8 +23,11 @@ def process_groups(group, path, timestamp):
         if "submasks" in members:
             members.remove("submasks")
             data = [dataframe.get(member)[:] for member in members]
-            data.append([submask for submask in dataframe.get("submasks")])
-            members.insert(len(members)+1, "submasks")
+            submasks = np.column_stack(np.asarray(dataframe.get('submasks')[:]))
+
+            for i in range(submasks.shape[0]):
+                data.insert(len(data)+1, submasks[i][:])
+                members.insert(len(members)+1, f"submasks_{i+1}")
         else:
             data = [dataframe.get(member)[:] for member in members]
 
@@ -38,7 +40,7 @@ def process_groups(group, path, timestamp):
             timestamp = timestamp + sup_offset + frequency
             timestamp_arr.append(timestamp)
 
-        material = np.empty(len(data[0]), dtype="S256")
+        material = np.empty(len(data[0]), dtype="U256")
         material.fill((dataframe.name).split("/")[2])
 
         members.insert(0, 'timestamp')
@@ -75,19 +77,17 @@ def main():
 
     print("ProcessPoolExecutor Step")
 
-    HDF_PATH = destination_uri
-
     groups = None
     timestamp = None
-    with h5py.File(HDF_PATH, 'r') as hdf5_file:
+    with h5py.File(destination_uri, 'r') as hdf5_file:
         groups = list(hdf5_file.get('series').keys())
         timestamp = hdf5_file.attrs.get('start_timestamp', 0)
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(process_groups, group, HDF_PATH, timestamp):
-                group for group in groups}
-        for future in concurrent.futures.as_completed(futures):
-            print(f'Result: {future.result()}')
+        futures = {executor.submit(process_groups, group, destination_uri, timestamp):
+            group for group in groups}
+    for future in concurrent.futures.as_completed(futures):
+        print(f'Result: {future.result()}')
 
 
 if __name__ == "__main__":
